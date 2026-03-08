@@ -321,7 +321,9 @@
     <div class="dropzone-icon">🎵</div>
     <p>Dotknij aby dodać muzykę</p>
     <small>MP3 · WAV · OGG · FLAC · M4A</small>
-    <input type="file" id="fileInput" multiple accept="audio/*" style="display:none" onchange="handleFiles(this.files)">
+    <input type="file" id="fileInput" multiple
+      accept="audio/*,audio/mpeg,audio/mp3,audio/mp4,audio/x-m4a,audio/aac,audio/wav,audio/ogg,audio/flac,.mp3,.m4a,.wav,.ogg,.flac,.aac,.opus"
+      style="display:none" onchange="handleFiles(this.files)">
   </div>
 
   <!-- Playlist -->
@@ -571,11 +573,22 @@ function updateTrackName() {
 }
 
 function handleFiles(files) {
-  const audioFiles = Array.from(files).filter(f => f.type.startsWith("audio/"));
+  const audioExts = /\.(mp3|m4a|wav|ogg|flac|aac|opus|mp4|aiff)$/i;
+  const audioFiles = Array.from(files).filter(f =>
+    f.type.startsWith("audio/") ||
+    f.type === "video/mp4" ||
+    f.type === "" ||
+    audioExts.test(f.name)
+  );
+  if (audioFiles.length === 0) {
+    setSpeech("Nie znalazłem plików audio. Wybierz pliki MP3 lub M4A z aplikacji Pliki 📁");
+    return;
+  }
   const newTracks = audioFiles.map(f => ({ name: f.name, url: URL.createObjectURL(f) }));
   tracks = [...tracks, ...newTracks];
   updatePlaylist();
   document.getElementById("btnStart").disabled = tracks.length === 0;
+  setSpeech(`Dodano ${audioFiles.length} ${audioFiles.length === 1 ? "utwór" : "utwory"}! Naciśnij START DJ 🎵`);
 }
 
 // Drag and drop for desktop
