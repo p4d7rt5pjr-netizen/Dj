@@ -1,0 +1,654 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="AI DJ">
+  <meta name="theme-color" content="#0a0015">
+  <meta name="description" content="Wirtualny DJ z AI - puszcza muzykę i komentuje jak prawdziwy wodzireJ">
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="icon-192.png">
+  <title>AI DJ Party</title>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;600;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --accent: #f97316;
+      --purple: #7c3aed;
+      --bg: #0a0015;
+      --surface: rgba(255,255,255,0.04);
+      --border: rgba(255,255,255,0.09);
+      --text: #f0e6ff;
+      --muted: #7c6a9a;
+      --safe-top: env(safe-area-inset-top, 0px);
+      --safe-bottom: env(safe-area-inset-bottom, 0px);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'DM Sans', sans-serif;
+      min-height: 100dvh;
+      padding: calc(var(--safe-top) + 16px) 16px calc(var(--safe-bottom) + 16px);
+      background-image:
+        radial-gradient(ellipse at 20% 10%, #2d0a5e55 0%, transparent 50%),
+        radial-gradient(ellipse at 80% 80%, #1a0a3a44 0%, transparent 50%);
+      overflow-x: hidden;
+    }
+
+    .app { max-width: 480px; margin: 0 auto; display: flex; flex-direction: column; gap: 14px; }
+
+    /* Header */
+    .header { text-align: center; padding: 8px 0 4px; }
+    .header-icon { font-size: 40px; line-height: 1; }
+    .header h1 {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 42px;
+      letter-spacing: 3px;
+      background: linear-gradient(135deg, var(--accent), #c084fc, #fff);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      line-height: 1.1;
+    }
+    .header p { color: var(--muted); font-size: 13px; margin-top: 2px; font-weight: 300; }
+
+    /* Cards */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 14px;
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+    }
+
+    /* Personality */
+    .personality-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .personality-btn {
+      background: var(--surface);
+      border: 1.5px solid var(--border);
+      border-radius: 12px;
+      padding: 10px 12px;
+      cursor: pointer;
+      text-align: left;
+      color: var(--text);
+      transition: all .2s;
+      -webkit-user-select: none;
+      user-select: none;
+    }
+    .personality-btn.active {
+      border-color: var(--accent);
+      background: color-mix(in srgb, var(--accent) 15%, transparent);
+    }
+    .personality-btn .p-label { font-weight: 700; font-size: 13px; display: block; }
+    .personality-btn .p-desc { font-size: 11px; color: var(--muted); margin-top: 2px; display: block; }
+
+    /* Speech bubble */
+    .speech {
+      min-height: 70px;
+      display: flex;
+      align-items: center;
+      font-size: 15px;
+      line-height: 1.6;
+      color: #ede0ff;
+      position: relative;
+    }
+    .speech::before {
+      content: '🎙️';
+      margin-right: 10px;
+      font-size: 20px;
+      flex-shrink: 0;
+    }
+    .typing-dots { display: flex; gap: 5px; align-items: center; }
+    .typing-dots span {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: #c084fc;
+      animation: pulse .9s ease-in-out infinite;
+    }
+    .typing-dots span:nth-child(2) { animation-delay: .2s; }
+    .typing-dots span:nth-child(3) { animation-delay: .4s; }
+    @keyframes pulse { 0%,100%{opacity:.3;transform:scale(.8)} 50%{opacity:1;transform:scale(1.2)} }
+
+    /* Visualizer */
+    .visualizer {
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      gap: 3px;
+      height: 52px;
+      padding: 4px 0;
+    }
+    .bar {
+      width: 5px;
+      background: var(--accent);
+      border-radius: 3px;
+      min-height: 3px;
+      opacity: .75;
+      transition: height .1s;
+    }
+    .bar.active { animation: var(--bar-anim) var(--bar-speed) ease-in-out infinite alternate; }
+    @keyframes b1 { from{height:3px} to{height:44px} }
+    @keyframes b2 { from{height:7px} to{height:36px} }
+    @keyframes b3 { from{height:11px} to{height:50px} }
+    @keyframes b4 { from{height:5px} to{height:30px} }
+
+    /* Now Playing */
+    .now-playing { margin-top: 12px; }
+    .track-name {
+      font-weight: 800;
+      font-size: 16px;
+      color: var(--accent);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      margin-bottom: 8px;
+    }
+    .track-name.idle { color: var(--muted); font-weight: 400; font-size: 13px; }
+    .progress-bar {
+      height: 4px;
+      background: rgba(255,255,255,.1);
+      border-radius: 4px;
+      overflow: hidden;
+    }
+    .progress-fill {
+      height: 100%;
+      background: var(--accent);
+      border-radius: 4px;
+      transition: width .15s linear;
+      width: 0%;
+    }
+    .break-label { font-size: 11px; color: var(--muted); margin-bottom: 5px; text-align: center; }
+
+    /* Controls */
+    .controls { display: flex; gap: 8px; align-items: center; }
+    .btn-main {
+      flex: 1;
+      padding: 15px;
+      border: none;
+      border-radius: 14px;
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 20px;
+      letter-spacing: 1px;
+      cursor: pointer;
+      background: linear-gradient(135deg, var(--accent), var(--purple));
+      color: #fff;
+      transition: all .2s;
+      -webkit-user-select: none;
+    }
+    .btn-main:disabled { opacity: .4; cursor: not-allowed; }
+    .btn-main:active { transform: scale(.97); }
+    .btn-icon {
+      padding: 15px 17px;
+      border-radius: 14px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text);
+      font-size: 18px;
+      cursor: pointer;
+      transition: all .2s;
+      -webkit-user-select: none;
+    }
+    .btn-icon:disabled { opacity: .35; cursor: not-allowed; }
+    .btn-icon:active { transform: scale(.93); }
+    .btn-icon.active { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 20%, transparent); }
+    .btn-stop { border-color: rgba(255,80,80,.3); color: #fca5a5; }
+
+    /* Sliders */
+    .sliders { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    .slider-group label { font-size: 11px; color: #a78bfa; display: block; margin-bottom: 6px; font-weight: 600; letter-spacing: .5px; }
+    input[type=range] {
+      width: 100%;
+      accent-color: var(--accent);
+      height: 4px;
+      cursor: pointer;
+    }
+
+    /* Drop zone */
+    .dropzone {
+      border: 2px dashed rgba(167,139,250,.3);
+      border-radius: 16px;
+      padding: 22px;
+      text-align: center;
+      cursor: pointer;
+      transition: all .2s;
+      background: rgba(167,139,250,.03);
+      -webkit-user-select: none;
+    }
+    .dropzone:active { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 8%, transparent); }
+    .dropzone-icon { font-size: 30px; margin-bottom: 8px; }
+    .dropzone p { color: #a78bfa; font-size: 14px; font-weight: 600; }
+    .dropzone small { color: var(--muted); font-size: 12px; }
+
+    /* Playlist */
+    .playlist-header {
+      padding: 10px 14px;
+      font-size: 11px;
+      color: #a78bfa;
+      font-weight: 700;
+      letter-spacing: 1px;
+      border-bottom: 1px solid var(--border);
+    }
+    .track-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 11px 14px;
+      border-bottom: 1px solid rgba(255,255,255,.04);
+      cursor: pointer;
+      transition: background .15s;
+      -webkit-user-select: none;
+    }
+    .track-item:last-child { border-bottom: none; }
+    .track-item:active { background: rgba(255,255,255,.06); }
+    .track-item.active { background: color-mix(in srgb, var(--accent) 12%, transparent); }
+    .track-num { font-size: 13px; color: var(--muted); width: 20px; text-align: center; flex-shrink: 0; }
+    .track-num.playing { color: var(--accent); }
+    .track-title { flex: 1; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .track-title.active { color: #fff; font-weight: 600; }
+    .track-remove {
+      background: none; border: none; color: var(--muted);
+      font-size: 18px; cursor: pointer; padding: 2px 6px; line-height: 1;
+      flex-shrink: 0;
+    }
+    .track-remove:active { color: #fca5a5; }
+
+    /* iOS install hint */
+    .install-hint {
+      text-align: center;
+      padding: 10px;
+      font-size: 12px;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+    .install-hint span { color: #a78bfa; }
+  </style>
+</head>
+<body>
+<div class="app">
+
+  <!-- Header -->
+  <div class="header">
+    <div class="header-icon">🎧</div>
+    <h1>AI DJ PARTY</h1>
+    <p>Wirtualny wodzireJ • powered by Claude AI</p>
+  </div>
+
+  <!-- Personality -->
+  <div class="card">
+    <div class="personality-grid" id="personalityGrid"></div>
+  </div>
+
+  <!-- Speech bubble -->
+  <div class="card speech" id="speechBubble">
+    <span id="speechText">Wrzuć muzykę i zaczynamy imprezę! 🎵</span>
+  </div>
+
+  <!-- Player -->
+  <div class="card">
+    <div class="visualizer" id="visualizer"></div>
+    <div class="now-playing">
+      <div class="track-name idle" id="trackName">Brak odtwarzania</div>
+      <div class="break-label" id="breakLabel" style="display:none">⏸ Przerwa — za chwilę następny track</div>
+      <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+    </div>
+  </div>
+
+  <!-- Controls -->
+  <div class="controls">
+    <button class="btn-main" id="btnStart" onclick="startDJ()">▶ START DJ</button>
+    <button class="btn-icon" id="btnSkip" onclick="skipTrack()" disabled>⏭</button>
+    <button class="btn-icon btn-stop" id="btnStop" onclick="stopDJ()" disabled>⏹</button>
+    <button class="btn-icon" id="btnShuffle" onclick="toggleShuffle()" title="Shuffle">🔀</button>
+  </div>
+
+  <!-- Sliders -->
+  <div class="card sliders">
+    <div class="slider-group">
+      <label>🔊 GŁOŚNOŚĆ</label>
+      <input type="range" min="0" max="1" step="0.05" value="0.8" oninput="setVolume(this.value)">
+    </div>
+    <div class="slider-group">
+      <label id="breakLabel2">⏸ PRZERWA: 5s</label>
+      <input type="range" min="3" max="30" step="1" value="5" oninput="setBreak(this.value)">
+    </div>
+  </div>
+
+  <!-- Drop zone -->
+  <div class="dropzone" id="dropzone" onclick="document.getElementById('fileInput').click()">
+    <div class="dropzone-icon">🎵</div>
+    <p>Dotknij aby dodać muzykę</p>
+    <small>MP3 · WAV · OGG · FLAC · M4A</small>
+    <input type="file" id="fileInput" multiple accept="audio/*" style="display:none" onchange="handleFiles(this.files)">
+  </div>
+
+  <!-- Playlist -->
+  <div class="card" id="playlistCard" style="padding:0;overflow:hidden;display:none;">
+    <div class="playlist-header" id="playlistHeader">PLAYLISTA</div>
+    <div id="trackList"></div>
+  </div>
+
+  <!-- Install hint -->
+  <div class="install-hint">
+    📱 Aby zainstalować: Safari → <span>Udostępnij ↑</span> → <span>Dodaj do ekranu głównego</span>
+  </div>
+
+</div>
+
+<audio id="audioPlayer"></audio>
+
+<script>
+const CLAUDE_MODEL = "claude-sonnet-4-20250514";
+
+const personalities = [
+  { id:"hype",     label:"🔥 Hype Beast",      desc:"Energetyczny i głośny",   color:"#f97316" },
+  { id:"smooth",   label:"😎 Smooth Operator",  desc:"Elegancki i spokojny",    color:"#06b6d4" },
+  { id:"retro",    label:"🕺 Retro Disco",      desc:"Lata 80. i 90.",          color:"#ec4899" },
+  { id:"festival", label:"🎪 Festival Maniac",  desc:"Szalony festiwalowy",     color:"#84cc16" },
+];
+
+const prompts = {
+  hype:     "Jesteś MEGA HYPE DJ-em na imprezie. Krzyczysz, używasz capslocka, wykrzykników i emoji 🔥. Słowa jak BANGER, ABSOLUTNY HIT, WSZYSCY NA PARKIET. Max 2-3 zdania.",
+  smooth:   "Jesteś eleganckim, suave DJ-em z luksusowego klubu. Mówisz spokojnie i z klasą, używasz pięknych metafor. Max 2-3 zdania kultury i stylu.",
+  retro:    "Jesteś DJ-em z lat 80./90. Używasz polskiego slangu z tamtej epoki. Nostalgia, dyskoteka, dawne czasy. Max 2-3 nostalgiczne zdania.",
+  festival: "Jesteś szalonym festival DJ-em. Mieszasz polsko-angielski, robisz żarty, jesteś nieprzewidywalny. Max 2-3 szalone zdania.",
+};
+
+let tracks = [], currentIdx = null, phase = "idle";
+let shuffle = false, breakDuration = 5, volume = 0.8;
+let breakTimer = null, personality = "hype";
+const audio = document.getElementById("audioPlayer");
+
+// ── Build personality grid ──
+const grid = document.getElementById("personalityGrid");
+personalities.forEach(p => {
+  const btn = document.createElement("button");
+  btn.className = "personality-btn" + (p.id === personality ? " active" : "");
+  btn.dataset.id = p.id;
+  btn.innerHTML = `<span class="p-label">${p.label}</span><span class="p-desc">${p.desc}</span>`;
+  btn.onclick = () => selectPersonality(p.id);
+  grid.appendChild(btn);
+});
+
+// ── Build visualizer ──
+const vis = document.getElementById("visualizer");
+const anims = ["b1","b2","b3","b4"];
+for (let i = 0; i < 30; i++) {
+  const bar = document.createElement("div");
+  bar.className = "bar";
+  bar.style.setProperty("--bar-anim", anims[i % 4]);
+  bar.style.setProperty("--bar-speed", (0.35 + (i % 5) * 0.08) + "s");
+  vis.appendChild(bar);
+}
+
+function setAccentColor(color) {
+  document.documentElement.style.setProperty("--accent", color);
+}
+
+function selectPersonality(id) {
+  personality = id;
+  document.querySelectorAll(".personality-btn").forEach(b => {
+    b.classList.toggle("active", b.dataset.id === id);
+  });
+  const p = personalities.find(x => x.id === id);
+  setAccentColor(p.color);
+}
+
+function toggleBars(on) {
+  document.querySelectorAll(".bar").forEach(b => {
+    b.classList.toggle("active", on);
+    if (!on) b.style.height = "3px";
+  });
+}
+
+function setSpeech(text, loading = false) {
+  const el = document.getElementById("speechText");
+  if (loading) {
+    el.innerHTML = `<div class="typing-dots"><span></span><span></span><span></span></div>`;
+  } else {
+    el.textContent = text;
+  }
+}
+
+async function getDJComment(trackName, ctx) {
+  setSpeech("", true);
+  const userPrompt = ctx === "intro"
+    ? `Zapowiedz piosenkę: "${trackName}". Zrób to jak prawdziwy DJ na żywo!`
+    : ctx === "outro"
+    ? `Zakończ odtwarzanie "${trackName}". Powiedz coś po jej zakończeniu.`
+    : `Powiedz coś w przerwie między piosenkami jako DJ, żeby utrzymać energię.`;
+
+  try {
+    const res = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: CLAUDE_MODEL,
+        max_tokens: 120,
+        system: prompts[personality],
+        messages: [{ role:"user", content: userPrompt }],
+      }),
+    });
+    const data = await res.json();
+    const text = data.content?.[0]?.text || "I lecimy dalej!";
+    setSpeech(text);
+    return text;
+  } catch {
+    setSpeech("I lecimy dalej! 🎵");
+  }
+}
+
+function trackName(t) { return t.name.replace(/\.[^/.]+$/, ""); }
+
+async function playTrack(idx) {
+  if (!tracks[idx]) return;
+  currentIdx = idx;
+  phase = "playing";
+  document.getElementById("breakLabel").style.display = "none";
+  updateTrackName();
+  toggleBars(true);
+  document.getElementById("btnStop").disabled = false;
+  document.getElementById("btnSkip").disabled = false;
+  document.getElementById("btnStart").disabled = true;
+  document.getElementById("btnStart").textContent = "▶ GRA";
+  updatePlaylist();
+
+  await getDJComment(trackName(tracks[idx]), "intro");
+  audio.src = tracks[idx].url;
+  audio.volume = volume;
+  await audio.play().catch(() => {});
+}
+
+async function startBreak(prevIdx) {
+  phase = "break";
+  toggleBars(false);
+  document.getElementById("breakLabel").style.display = "block";
+  document.getElementById("progressFill").style.width = "0%";
+
+  await getDJComment(prevIdx !== null && tracks[prevIdx] ? trackName(tracks[prevIdx]) : "piosenka", "break");
+
+  let elapsed = 0;
+  const interval = 100;
+  breakTimer = setInterval(() => {
+    elapsed += interval;
+    document.getElementById("progressFill").style.width = Math.min((elapsed / (breakDuration * 1000)) * 100, 100) + "%";
+    if (elapsed >= breakDuration * 1000) {
+      clearInterval(breakTimer);
+    }
+  }, interval);
+
+  setTimeout(() => {
+    if (phase !== "break") return;
+    const next = shuffle
+      ? Math.floor(Math.random() * tracks.length)
+      : (currentIdx + 1) % tracks.length;
+    playTrack(next);
+  }, breakDuration * 1000);
+}
+
+audio.addEventListener("ended", async () => {
+  if (phase !== "playing") return;
+  const idx = currentIdx;
+  toggleBars(false);
+  await getDJComment(idx !== null && tracks[idx] ? trackName(tracks[idx]) : "piosenka", "outro");
+  if (tracks.length > 1) {
+    startBreak(idx);
+  } else {
+    phase = "idle";
+    document.getElementById("btnStart").disabled = false;
+    document.getElementById("btnStart").textContent = "▶ START DJ";
+    document.getElementById("btnStop").disabled = true;
+    document.getElementById("btnSkip").disabled = true;
+  }
+});
+
+audio.addEventListener("timeupdate", () => {
+  if (audio.duration && phase === "playing") {
+    document.getElementById("progressFill").style.width = (audio.currentTime / audio.duration * 100) + "%";
+  }
+});
+
+function startDJ() {
+  if (tracks.length === 0) return;
+  clearInterval(breakTimer);
+  const idx = shuffle ? Math.floor(Math.random() * tracks.length) : 0;
+  playTrack(idx);
+}
+
+function stopDJ() {
+  clearInterval(breakTimer);
+  audio.pause();
+  audio.currentTime = 0;
+  phase = "idle";
+  currentIdx = null;
+  toggleBars(false);
+  document.getElementById("progressFill").style.width = "0%";
+  document.getElementById("breakLabel").style.display = "none";
+  document.getElementById("trackName").textContent = "Brak odtwarzania";
+  document.getElementById("trackName").className = "track-name idle";
+  document.getElementById("btnStart").disabled = tracks.length === 0;
+  document.getElementById("btnStart").textContent = "▶ START DJ";
+  document.getElementById("btnStop").disabled = true;
+  document.getElementById("btnSkip").disabled = true;
+  setSpeech("DJ zatrzymany. Do zobaczenia na kolejnej imprezie! 🎤");
+  updatePlaylist();
+}
+
+function skipTrack() {
+  clearInterval(breakTimer);
+  audio.pause();
+  audio.currentTime = 0;
+  phase = "idle";
+  const next = shuffle
+    ? Math.floor(Math.random() * tracks.length)
+    : ((currentIdx ?? -1) + 1) % tracks.length;
+  playTrack(next);
+}
+
+function toggleShuffle() {
+  shuffle = !shuffle;
+  document.getElementById("btnShuffle").classList.toggle("active", shuffle);
+}
+
+function setVolume(v) {
+  volume = parseFloat(v);
+  audio.volume = volume;
+}
+
+function setBreak(v) {
+  breakDuration = parseInt(v);
+  document.getElementById("breakLabel2").textContent = `⏸ PRZERWA: ${v}s`;
+}
+
+function updateTrackName() {
+  const el = document.getElementById("trackName");
+  if (currentIdx !== null && tracks[currentIdx]) {
+    el.textContent = "▶ " + trackName(tracks[currentIdx]);
+    el.className = "track-name";
+  }
+}
+
+function handleFiles(files) {
+  const audioFiles = Array.from(files).filter(f => f.type.startsWith("audio/"));
+  const newTracks = audioFiles.map(f => ({ name: f.name, url: URL.createObjectURL(f) }));
+  tracks = [...tracks, ...newTracks];
+  updatePlaylist();
+  document.getElementById("btnStart").disabled = tracks.length === 0;
+}
+
+// Drag and drop for desktop
+const dz = document.getElementById("dropzone");
+dz.addEventListener("dragover", e => { e.preventDefault(); dz.style.borderColor = "var(--accent)"; });
+dz.addEventListener("dragleave", () => { dz.style.borderColor = ""; });
+dz.addEventListener("drop", e => {
+  e.preventDefault();
+  dz.style.borderColor = "";
+  handleFiles(e.dataTransfer.files);
+});
+
+function removeTrack(idx) {
+  if (idx === currentIdx) stopDJ();
+  URL.revokeObjectURL(tracks[idx].url);
+  tracks.splice(idx, 1);
+  if (currentIdx !== null && idx < currentIdx) currentIdx--;
+  updatePlaylist();
+  document.getElementById("btnStart").disabled = tracks.length === 0;
+}
+
+function updatePlaylist() {
+  const card = document.getElementById("playlistCard");
+  const list = document.getElementById("trackList");
+  const header = document.getElementById("playlistHeader");
+
+  if (tracks.length === 0) { card.style.display = "none"; return; }
+  card.style.display = "block";
+
+  const count = tracks.length;
+  const word = count === 1 ? "utwór" : count < 5 ? "utwory" : "utworów";
+  header.textContent = `PLAYLISTA — ${count} ${word}`;
+
+  list.innerHTML = "";
+  tracks.forEach((t, i) => {
+    const item = document.createElement("div");
+    item.className = "track-item" + (i === currentIdx ? " active" : "");
+
+    const numEl = document.createElement("div");
+    numEl.className = "track-num" + (i === currentIdx ? " playing" : "");
+    numEl.textContent = (i === currentIdx && phase === "playing") ? "▶" : i + 1;
+
+    const titleEl = document.createElement("div");
+    titleEl.className = "track-title" + (i === currentIdx ? " active" : "");
+    titleEl.textContent = trackName(t);
+
+    const removeBtn = document.createElement("button");
+    removeBtn.className = "track-remove";
+    removeBtn.textContent = "×";
+    removeBtn.onclick = (e) => { e.stopPropagation(); removeTrack(i); };
+
+    item.appendChild(numEl);
+    item.appendChild(titleEl);
+    item.appendChild(removeBtn);
+    item.onclick = () => {
+      clearInterval(breakTimer);
+      if (audio) { audio.pause(); audio.currentTime = 0; }
+      phase = "idle";
+      playTrack(i);
+    };
+    list.appendChild(item);
+  });
+}
+
+// Init
+document.getElementById("btnStart").disabled = true;
+document.getElementById("btnStop").disabled = true;
+document.getElementById("btnSkip").disabled = true;
+
+// Register service worker
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("sw.js").catch(() => {});
+}
+</script>
+</body>
+</html>
